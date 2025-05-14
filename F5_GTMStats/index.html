@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html>
+<title>GTM Status</title>
+<body>
+
+<h1>F5 GTM Status Page</h1>
+<h2>WideIP: stepca.gslb.gw.internal</h2>
+<h3><img src="up-icon.png" alt="up">
+GTM Pool : pool_stepca ---> <font color="green"> Enabled </font></h3>
+<p> --> Member: <b>/Common/vs_crtsrv-80</b>
+ [GSLB Server: /Common/bigip01]<br/>
+  --> enabled<br/>
+  --> available
+ : Reason: Available
+<p> --> Member: <b>/Common/vs_step-443</b>
+ [GSLB Server: /Common/bigip01]<br/>
+  --> enabled<br/>
+  --> available
+ : Reason: Available
+</p>
+<hr>
+
+<h2>WideIP: tonglespan.gw.internal</h2>
+<h3><img src="down-icon.png" alt="disabled">
+GTM Pool : pooll_test ---> <font color="red"> Offline : </font>No enabled pool members available</h3>
+<p> --> Member: <b>r1a</b>
+ [GSLB Server: /Common/r1]<br/>
+  --> enabled<br/>
+  --> offline
+ : Reason:  Monitor /Common/gateway_icmp : no route
+</p>
+<hr>
+
+</body>
+</html>
