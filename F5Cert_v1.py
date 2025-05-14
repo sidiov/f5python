@@ -101,62 +101,63 @@ def getAllCerts(bigip):
         #Request the profile stats (stats shows the TYPE, whereas the profile list does not)
         profile_jsonResponse = getF5Url(bigip, profileUrl)
         
-        #iterate profile key:value pairs
-        for profile_key, profile_value in profile_jsonResponse['entries'].items():
-            nested_stats = profile_value.get("nestedStats", {})
-            entries = nested_stats.get("entries", {})
-            
-            type_id = entries.get("typeId", {}).get("description", "")
-            tm_name = entries.get("tmName", {}).get("description", "")
-            dlog(f"name: {tm_name}  ==>> type: {type_id}")
-            
-            # Check if typeId contains "ssl"
-            if "ssl" in type_id:
+        if 'entries' in profile_jsonResponse:
+            #iterate profile key:value pairs
+            for profile_key, profile_value in profile_jsonResponse['entries'].items():
+                nested_stats = profile_value.get("nestedStats", {})
+                entries = nested_stats.get("entries", {})
+                
+                type_id = entries.get("typeId", {}).get("description", "")
                 tm_name = entries.get("tmName", {}).get("description", "")
-                dlog(f" >Profile: {tm_name}, type: {type_id}")
-                profileUrl = url_clean(tm_name)
-                profileUrl = urlApiName(profileUrl)
-                #default sslUrl for scope
-                sslUrl = None
-
-                #get client vs server SSL profiles for correct URI
-                if "client-ssl" in type_id:
-                    sslUrl = f"/mgmt/tm/ltm/profile/client-ssl/{profileUrl}"
-                elif "server-ssl" in type_id:
-                    sslUrl = f"/mgmt/tm/ltm/profile/server-ssl/{profileUrl}"
-                else:
-                    #if we didnt get sslUrl set for some reason, break us out of loop
-                    break
+                dlog(f"name: {tm_name}  ==>> type: {type_id}")
                 
-                #request the SSL profile
-                jsonSSL = getF5Url(bigip, sslUrl)
-                
-                #find the cert in use by the profile
-                if jsonSSL["cert"] != "none":
-                    certName = jsonSSL["cert"]
-                    certName = urlApiName(certName)
-                        
-                    #request the cert object
-                    certUrl = f"/mgmt/tm/sys/file/ssl-cert/{certName}"
-                    jsonCert = getF5Url(bigip,certUrl)
+                # Check if typeId contains "ssl"
+                if "ssl" in type_id:
+                    tm_name = entries.get("tmName", {}).get("description", "")
+                    dlog(f" >Profile: {tm_name}, type: {type_id}")
+                    profileUrl = url_clean(tm_name)
+                    profileUrl = urlApiName(profileUrl)
+                    #default sslUrl for scope
+                    sslUrl = None
 
-                    #get the date the cert expires
-                    certDate = datetime.fromtimestamp(jsonCert['expirationDate'])
-                    currentTime = datetime.now()
+                    #get client vs server SSL profiles for correct URI
+                    if "client-ssl" in type_id:
+                        sslUrl = f"/mgmt/tm/ltm/profile/client-ssl/{profileUrl}"
+                    elif "server-ssl" in type_id:
+                        sslUrl = f"/mgmt/tm/ltm/profile/server-ssl/{profileUrl}"
+                    else:
+                        #if we didnt get sslUrl set for some reason, break us out of loop
+                        break
+                    
+                    #request the SSL profile
+                    jsonSSL = getF5Url(bigip, sslUrl)
+                    
+                    #find the cert in use by the profile
+                    if jsonSSL["cert"] != "none":
+                        certName = jsonSSL["cert"]
+                        certName = urlApiName(certName)
+                            
+                        #request the cert object
+                        certUrl = f"/mgmt/tm/sys/file/ssl-cert/{certName}"
+                        jsonCert = getF5Url(bigip,certUrl)
 
-                    if certDate > currentTime:
-                        tDiff = abs((certDate - currentTime).days)
-                        #dlog(f"{tDiff} days until expiration.")
-                    elif certDate <= currentTime:
-                        tDiff = "EXPIRED"
-                        #dlog("EXPIRED")
-                else:
-                    #if no cert in profile, there is no cert date (prevents carrying previous date)
-                    certDate = "none"
-                    tDiff = "none"
+                        #get the date the cert expires
+                        certDate = datetime.fromtimestamp(jsonCert['expirationDate'])
+                        currentTime = datetime.now()
 
-                #print the row: Virtual, SSL profile, SSL cert, expiration Date, Days until exp. 
-                outMsg(FILE, f"{bigip}, {virtual['name']}, {tm_name}, {jsonSSL['cert']}, {certDate}, {tDiff}")
+                        if certDate > currentTime:
+                            tDiff = abs((certDate - currentTime).days)
+                            #dlog(f"{tDiff} days until expiration.")
+                        elif certDate <= currentTime:
+                            tDiff = "EXPIRED"
+                            #dlog("EXPIRED")
+                    else:
+                        #if no cert in profile, there is no cert date (prevents carrying previous date)
+                        certDate = "none"
+                        tDiff = "none"
+
+                    #print the row: Virtual, SSL profile, SSL cert, expiration Date, Days until exp. 
+                    outMsg(FILE, f"{bigip}, {virtual['name']}, {tm_name}, {jsonSSL['cert']}, {certDate}, {tDiff}")
 
 
 ####Main***********
