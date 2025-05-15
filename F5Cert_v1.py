@@ -73,6 +73,26 @@ def validate_ip(ip_str):
     except ValueError:
         return False
 
+#print cert info csv line
+def outputCertInfo(bigip, virtual, tm_name, certName):
+    #request the cert object
+    certUrl = f"/mgmt/tm/sys/file/ssl-cert/{certName}"
+    jsonCert = getF5Url(bigip,certUrl)
+
+    #get the date the cert expires
+    certDate = datetime.fromtimestamp(jsonCert['expirationDate'])
+    currentTime = datetime.now()
+
+    if certDate > currentTime:
+        tDiff = abs((certDate - currentTime).days)
+    elif certDate <= currentTime:
+        tDiff = "EXPIRED"
+
+    #print the row: Virtual, SSL profile, SSL cert, expiration Date, Days until exp. 
+    outMsg(FILE, f"{bigip}, {virtual}, {tm_name}, {certName}, {certDate}, {tDiff}")
+
+    return
+
 #primary function to grab and return cert info
 def getAllCerts(bigip):
     #Validate the bigip responds
@@ -131,33 +151,29 @@ def getAllCerts(bigip):
                     
                     #request the SSL profile
                     jsonSSL = getF5Url(bigip, sslUrl)
-                    
+
                     #find the cert in use by the profile
                     if jsonSSL["cert"] != "none":
+                        dlog(f"cert: {jsonSSL["cert"]}")
                         certName = jsonSSL["cert"]
                         certName = urlApiName(certName)
-                            
-                        #request the cert object
-                        certUrl = f"/mgmt/tm/sys/file/ssl-cert/{certName}"
-                        jsonCert = getF5Url(bigip,certUrl)
+                        
+                        outputCertInfo(bigip, virtual["name"], tm_name, certName)
+                    #if no cert, but there are chain(s), get each chain cert   
+                    elif "certKeyChain" in jsonSSL:
+                        for chain in jsonSSL["certKeyChain"]:
+                            if ("cert" in chain) and (chain["cert"] != "none"):
+                                dlog(f"ckc: {chain["cert"]}")
+                                certName = chain["cert"]
+                                certName = urlApiName(certName)
 
-                        #get the date the cert expires
-                        certDate = datetime.fromtimestamp(jsonCert['expirationDate'])
-                        currentTime = datetime.now()
-
-                        if certDate > currentTime:
-                            tDiff = abs((certDate - currentTime).days)
-                            #dlog(f"{tDiff} days until expiration.")
-                        elif certDate <= currentTime:
-                            tDiff = "EXPIRED"
-                            #dlog("EXPIRED")
+                                outputCertInfo(bigip, virtual["name"], tm_name, certName)
                     else:
                         #if no cert in profile, there is no cert date (prevents carrying previous date)
                         certDate = "none"
                         tDiff = "none"
-
-                    #print the row: Virtual, SSL profile, SSL cert, expiration Date, Days until exp. 
-                    outMsg(FILE, f"{bigip}, {virtual['name']}, {tm_name}, {jsonSSL['cert']}, {certDate}, {tDiff}")
+                        
+                        outMsg(FILE, f"{bigip}, {virtual["name"]}, {tm_name}, none, none, none")
 
 
 ####Main***********
